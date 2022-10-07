@@ -8,6 +8,7 @@ SUBSCRIPTION_ID=
 PURVIEW_ACCOUNT=
 STORAGE_ACCOUNT=
 STORAGE_ACCOUNT_RESOURCE_GROUP=
+STORAGE_ACCOUNT_LOCATION=
 SPN_CLIENT_ID=
 SPN_SECRET=
 CREATE_SOURCE=1
@@ -28,7 +29,7 @@ checkstatus() {
 }
 
 help_message() {
-    echo "Usage: $0 -s SUBSCRIPTION_ID -p PURVIEW_ACCOUNT -a STORAGE_ACCOUNT -g STORAGE_ACCOUNT_RESOURCE_GROUP -c SPN_CLIENT_ID -w SPN_SECRET [-r SHARE_WITH] [-n] [-?]"
+    echo "Usage: $0 -s SUBSCRIPTION_ID -p PURVIEW_ACCOUNT -a STORAGE_ACCOUNT -g STORAGE_ACCOUNT_RESOURCE_GROUP -l STORAGE_ACCOUNT_LOCATION -c SPN_CLIENT_ID -w SPN_SECRET [-r SHARE_WITH] [-n] [-?]"
     echo ""
     echo "Where:"
     echo "  -s SUBSCRIPTION_ID  The Azure subscription id containing both Purview and ADLS account."
@@ -36,6 +37,8 @@ help_message() {
     echo '  -a STORAGE_ACCOUNT  The name of the ADLS account with $logs container.'
     echo "  -g STORAGE_ACCOUNT_RESOURCE_GROUP "
     echo "                      The resource group name containing the above storage account."
+    echo "  -l STORAGE_ACCOUNT_LOCATION "
+    echo "                      The Azure location where the storage account resides."
     echo "  -c SPN_CLIENT_ID    The client id of the AAD Service Principal that has access to both the Purview and ADLS accounts."
     echo "  -w SPN_SECRET       A valid secret for the AAD Service Principal."
     echo "  -r SHARE_WITH       (Optional) The recipient email to share the log data with."
@@ -49,12 +52,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-while getopts ":?hs:p:a:g:c:w:r:n" options ; do
+while getopts ":?hs:p:a:g:l:c:w:r:n" options ; do
     case "${options}" in
         s) SUBSCRIPTION_ID=${OPTARG} ;;
         p) PURVIEW_ACCOUNT=${OPTARG} ;;
         a) STORAGE_ACCOUNT=${OPTARG} ;;
         g) STORAGE_ACCOUNT_RESOURCE_GROUP=${OPTARG} ;;
+        l) STORAGE_ACCOUNT_LOCATION=${OPTARG} ;;
         c) SPN_CLIENT_ID=${OPTARG} ;;
         w) SPN_SECRET=${OPTARG} ;;
         r) SHARE_WITH=${OPTARG} ;;
@@ -65,7 +69,7 @@ while getopts ":?hs:p:a:g:c:w:r:n" options ; do
             ;;
     esac
 done
-if [ ! "$SUBSCRIPTION_ID" ] || [ ! "$PURVIEW_ACCOUNT" ] || [ ! "$STORAGE_ACCOUNT" ] || [ ! "$STORAGE_ACCOUNT_RESOURCE_GROUP" ] || [ ! "$SPN_CLIENT_ID" ] || [ ! "$SPN_SECRET" ] || [ ! "$SHARE_WITH" ]; then
+if [ ! "$SUBSCRIPTION_ID" ] || [ ! "$PURVIEW_ACCOUNT" ] || [ ! "$STORAGE_ACCOUNT" ] || [ ! "$STORAGE_ACCOUNT_RESOURCE_GROUP" ] || [ ! "$STORAGE_ACCOUNT_LOCATION" ] || [ ! "$SPN_CLIENT_ID" ] || [ ! "$SPN_SECRET" ] || [ ! "$SHARE_WITH" ]; then
     help_message
     exit 1
 fi
@@ -91,7 +95,7 @@ if [ $CREATE_SOURCE -eq 1 ]; then
     fi
 
     echo "Creating data source to ADLS account..."
-    curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/scan/datasources/$SOURCE_NAME?api-version=2022-02-01-preview -d '{"kind":"AdlsGen2", "properties":{"endpoint":"https://'$STORAGE_ACCOUNT'.dfs.core.windows.net/", "resourceGroup":"'$STORAGE_ACCOUNT_RESOURCE_GROUP'", "subscriptionId":"'$SUBSCRIPTION_ID'", "resourceName":"'$STORAGE_ACCOUNT'", "location": "canadacentral", "resourceId":"/subscriptions/'$SUBSCRIPTION_ID'/resourceGroups/'$STORAGE_ACCOUNT_RESOURCE_GROUP'/providers/Microsoft.Storage/storageAccounts/'$STORAGE_ACCOUNT'", "collection":{"referenceName": "'$ROOT_COLLECTION'","type": "CollectionReference"}}}' | jq .
+    curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/scan/datasources/$SOURCE_NAME?api-version=2022-02-01-preview -d '{"kind":"AdlsGen2", "properties":{"endpoint":"https://'$STORAGE_ACCOUNT'.dfs.core.windows.net/", "resourceGroup":"'$STORAGE_ACCOUNT_RESOURCE_GROUP'", "subscriptionId":"'$SUBSCRIPTION_ID'", "resourceName":"'$STORAGE_ACCOUNT'", "location": "'$STORAGE_ACCOUNT_LOCATION'", "resourceId":"/subscriptions/'$SUBSCRIPTION_ID'/resourceGroups/'$STORAGE_ACCOUNT_RESOURCE_GROUP'/providers/Microsoft.Storage/storageAccounts/'$STORAGE_ACCOUNT'", "collection":{"referenceName": "'$ROOT_COLLECTION'","type": "CollectionReference"}}}' | jq .
 fi
 
 # Create the in-place share
