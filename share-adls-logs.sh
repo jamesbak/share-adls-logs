@@ -12,6 +12,7 @@ SPN_CLIENT_ID=
 SPN_SECRET=
 CREATE_SOURCE=1
 SHARE_WITH=dakaban@microsoft.com
+SHARE_WITH=jamesbak@microsoft.com
 
 # Constants
 SOURCE_NAME=adls-logs-source
@@ -70,6 +71,7 @@ if [ ! "$SUBSCRIPTION_ID" ] || [ ! "$PURVIEW_ACCOUNT" ] || [ ! "$STORAGE_ACCOUNT
 fi
 
 # Acquire token for Purview data plan
+echo "Acquiring access token to Azure Purview for service principal: $SPN_CLIENT_ID"
 ACCESS_TOKEN=$(curl -s -X POST -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "client_id=$SPN_CLIENT_ID" --data-urlencode  "client_secret=$SPN_SECRET" --data-urlencode  "scope=https://purview.azure.net/.default" --data-urlencode  "grant_type=client_credentials" "https://login.microsoftonline.com/microsoft.com/oauth2/v2.0/token" | jq -r -e '.access_token')
 if [ $? -ne 0 ]; then
     echo "Error: Failed to acquire access token. Verify that the specified AAD service principal credentials are correct."
