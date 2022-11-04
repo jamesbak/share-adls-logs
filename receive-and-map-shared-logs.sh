@@ -82,7 +82,7 @@ if [ ! "$SENDER_TENANT_ID" ]; then
     SENDER_TENANT_ID=$(echo $SHARE_INVITE | jq -r .properties.senderTenantName)
 else
     echo "Looking up share inviation from: $SENDER_TENANT_ID"
-    SHARE_INVITE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" https://$PURVIEW_ACCOUNT.purview.azure.com/share/receivedInvitations?api-version=2021-09-01-preview | jq '.value[] | select(.properties.senderTenantName == "'$SENDER_TENANT_ID'")')  
+    SHARE_INVITE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" https://$PURVIEW_ACCOUNT.purview.azure.com/share/receivedInvitations?api-version=2021-09-01-preview | jq '.value[] | select(.properties.senderTenantName == "'"$SENDER_TENANT_ID"'")')  
 fi
 if [ ! "$SHARE_INVITE" ]; then
     echo "Share invitation not found."
@@ -90,7 +90,8 @@ if [ ! "$SHARE_INVITE" ]; then
 fi
 INVITATION_ID=$(echo $SHARE_INVITE | jq -r .name)
 SHARE_LOCATION=$(echo $SHARE_INVITE | jq -r .properties.location)
-SHARE_NAME="adls-share-logs-from-$SENDER_TENANT_ID"
+FIXED_SENDER_TENANT=$(echo $SENDER_TENANT_ID | tr [:upper:] [:lower:] | tr ' ' '-')
+SHARE_NAME="adls-share-logs-from-$FIXED_SENDER_TENANT"
 
 # Create a ADLS source in the Purview account to receive the shared data
 echo "Fetching root collection..."
@@ -105,7 +106,7 @@ echo "Creating data source to ADLS account..."
 curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/scan/datasources/$STORAGE_ACCOUNT?api-version=2022-02-01-preview -d '{"kind":"AdlsGen2", "properties":{"endpoint":"https://'$STORAGE_ACCOUNT'.dfs.core.windows.net/", "resourceGroup":"'$STORAGE_RESOURCE_GROUP'", "subscriptionId":"'$SUBSCRIPTION_ID'", "resourceName":"'$STORAGE_ACCOUNT'", "location": "'$STORAGE_LOCATION'", "resourceId":"'$STORAGE_RESOURCE_ID'", "collection":{"referenceName": "'$ROOT_COLLECTION'","type": "CollectionReference"}}}' | jq .
 
 # Create the received share from the invitation
-echo "Accepting the share inviation"
+echo "Accepting the share invitation"
 curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/share/receivedShares/$SHARE_NAME?api-version=2021-09-01-preview -d '{"shareKind":"InPlace","properties":{"sentShareLocation":"'$SHARE_LOCATION'", "invitationId":"'$INVITATION_ID'", "collection":{"referenceName":"'$ROOT_COLLECTION'", "type":"CollectionReference"}}}' | jq .
 
 # Map the shared assets
@@ -114,6 +115,6 @@ ASSETS=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" https://$PURVIEW_ACCOU
 ASSET_ID=$(echo $ASSETS | jq -r .name)
 ASSET_NAME=$(echo $ASSETS | jq -r .properties.receiverAssetName)
 echo "Mapping shared asset to recipient account: $ASSET_NAME"
-curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/share/receivedShares/$SHARE_NAME/assetMappings/$ASSET_NAME?api-version=2021-09-01-preview -d '{"kind": "AdlsGen2Account", "properties": { "assetId": "'$ASSET_ID'", "storageAccountResourceId": "'$STORAGE_RESOURCE_ID'", "containerName": "'$(echo $SENDER_TENANT_ID | tr '[:upper:]' '[:lower:]')'", "folder": "'$ASSET_NAME'", "mountPath": ""}}' | jq .
+curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/share/receivedShares/$SHARE_NAME/assetMappings/$ASSET_NAME?api-version=2021-09-01-preview -d '{"kind": "AdlsGen2Account", "properties": { "assetId": "'$ASSET_ID'", "storageAccountResourceId": "'$STORAGE_RESOURCE_ID'", "containerName": "'$FIXED_SENDER_TENANT'", "folder": "'$ASSET_NAME'", "mountPath": ""}}' | jq .
 
-echo "Finished. Logs have been shared to https://$STORAGE_ACCOUNT.dfs.core.windows.net/$SENDER_TENANT_ID/"
+echo "Finished. Logs have been shared to https://$STORAGE_ACCOUNT.dfs.core.windows.net/$FIXED_SENDER_TENANT/"
