@@ -1,7 +1,7 @@
 #!/bin/bash
 
 help_message() {
-    echo "Usage: $0 -t TENANT_ID -p PURVIEW_ACCOUNT -s STORAGE_ACCOUNT -c SPN_CLIENT_ID -w SPN_SECRET [-r SENDER_TENANT_ID] [-n] [-?]"
+    echo "Usage: $0 -t TENANT_ID -p PURVIEW_ACCOUNT -s STORAGE_ACCOUNT -c SPN_CLIENT_ID -w SPN_SECRET [-r SENDER_TENANT_ID] [-?]"
     echo ""
     echo "Where:"
     echo "  -t TENANT_ID        The id or DNS name of your AAD tenant."
@@ -19,7 +19,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-while getopts ":?ht:p:s:r:c:w:" options ; do
+while getopts ":?ht:p:s:c:w:r:" options ; do
     case "${options}" in
         t) TENANT_ID=${OPTARG} ;;
         p) PURVIEW_ACCOUNT=${OPTARG} ;;
@@ -102,7 +102,7 @@ if [ $? -ne 0 ]; then
 fi
 # Create a source for the account that we are mapping into
 echo "Creating data source to ADLS account..."
-curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/scan/datasources/$SOURCE_NAME?api-version=2022-02-01-preview -d '{"kind":"AdlsGen2", "properties":{"endpoint":"https://'$STORAGE_ACCOUNT'.dfs.core.windows.net/", "resourceGroup":"'$STORAGE_RESOURCE_GROUP'", "subscriptionId":"'$SUBSCRIPTION_ID'", "resourceName":"'$STORAGE_ACCOUNT'", "location": "'$STORAGE_LOCATION'", "resourceId":"'$STORAGE_RESOURCE_ID'", "collection":{"referenceName": "'$ROOT_COLLECTION'","type": "CollectionReference"}}}' | jq .
+curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/scan/datasources/$STORAGE_ACCOUNT?api-version=2022-02-01-preview -d '{"kind":"AdlsGen2", "properties":{"endpoint":"https://'$STORAGE_ACCOUNT'.dfs.core.windows.net/", "resourceGroup":"'$STORAGE_RESOURCE_GROUP'", "subscriptionId":"'$SUBSCRIPTION_ID'", "resourceName":"'$STORAGE_ACCOUNT'", "location": "'$STORAGE_LOCATION'", "resourceId":"'$STORAGE_RESOURCE_ID'", "collection":{"referenceName": "'$ROOT_COLLECTION'","type": "CollectionReference"}}}' | jq .
 
 # Create the received share from the invitation
 echo "Accepting the share inviation"
@@ -114,6 +114,6 @@ ASSETS=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" https://$PURVIEW_ACCOU
 ASSET_ID=$(echo $ASSETS | jq -r .name)
 ASSET_NAME=$(echo $ASSETS | jq -r .properties.receiverAssetName)
 echo "Mapping shared asset to recipient account: $ASSET_NAME"
-curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/share/receivedShares/$SHARE_NAME/assetMappings/$ASSET_NAME?api-version=2021-09-01-preview -d '{"kind": "AdlsGen2Account", "properties": { "assetId": "'$ASSET_ID'", "storageAccountResourceId": "'$STORAGE_RESOURCE_ID'", "containerName": "'$SENDER_TENANT_ID'", "folder": "'$ASSET_NAME'", "mountPath": ""}}' | jq .
+curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/share/receivedShares/$SHARE_NAME/assetMappings/$ASSET_NAME?api-version=2021-09-01-preview -d '{"kind": "AdlsGen2Account", "properties": { "assetId": "'$ASSET_ID'", "storageAccountResourceId": "'$STORAGE_RESOURCE_ID'", "containerName": "'$(echo $SENDER_TENANT_ID | tr '[:upper:]' '[:lower:]')'", "folder": "'$ASSET_NAME'", "mountPath": ""}}' | jq .
 
 echo "Finished. Logs have been shared to https://$STORAGE_ACCOUNT.dfs.core.windows.net/$SENDER_TENANT_ID/"
