@@ -117,4 +117,16 @@ ASSET_NAME=$(echo $ASSETS | jq -r .properties.receiverAssetName)
 echo "Mapping shared asset to recipient account: $ASSET_NAME"
 curl -s -X PUT -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" https://$PURVIEW_ACCOUNT.purview.azure.com/share/receivedShares/$SHARE_NAME/assetMappings/$ASSET_NAME?api-version=2021-09-01-preview -d '{"kind": "AdlsGen2Account", "properties": { "assetId": "'$ASSET_ID'", "storageAccountResourceId": "'$STORAGE_RESOURCE_ID'", "containerName": "'$FIXED_SENDER_TENANT'", "folder": "'$ASSET_NAME'", "mountPath": ""}}' | jq .
 
+# Loop waiting for the assets to complete mapping
+MAPPING_STATE=
+PROVISIONING_STATE=
+while [ "$MAPPING_STATE" != "Ok" ] || [ "$PROVISIONING_STATE" != "Succeeded" ]
+do
+    sleep 3
+    MAPPING_OPERATION=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" https://$PURVIEW_ACCOUNT.purview.azure.com/share/receivedShares/$SHARE_NAME/assetMappings/$ASSET_NAME?api-version=2021-09-01-preview)
+    MAPPING_STATE=$(echo $MAPPING_OPERATION | jq -r .properties.assetMappingStatus)
+    PROVISIONING_STATE=$(echo $MAPPING_OPERATION | jq -r .properties.provisioningState)
+    echo "$MAPPING_STATE : $PROVISIONING_STATE"
+done
+
 echo "Finished. Logs have been shared to https://$STORAGE_ACCOUNT.dfs.core.windows.net/$FIXED_SENDER_TENANT/"
