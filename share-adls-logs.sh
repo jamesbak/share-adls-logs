@@ -16,10 +16,6 @@ SHARE_WITH_SPN=b16b8b49-5161-4710-bf50-f2bf561462b3
 SHARE_WITH_TENANT=72f988bf-86f1-41af-91ab-2d7cd011db47
 SHARE_WITH=
 
-# Constants
-SOURCE_NAME=adls-logs-source
-SHARE_NAME=adls-logs-to-microsoft
-
 help_message() {
     echo "Usage: $0 -t TENANT_ID -p PURVIEW_ACCOUNT -s STORAGE_ACCOUNT -c SPN_CLIENT_ID -w SPN_SECRET [-r SHARE_WITH] [-n] [-?]"
     echo ""
@@ -98,6 +94,10 @@ STORAGE_RESOURCE_GROUP=${BASH_REMATCH[1]}
 STORAGE_LOCATION=$(echo $ACCOUNT_INFO | jq -r .location)
 
 # Start building the share in Purivew
+# Append account name information to source & share names to improve disambiguation
+SOURCE_NAME=adls-logs-source-$STORAGE_ACCOUNT
+SHARE_NAME=adls-logs-to-microsoft-$STORAGE_ACCOUNT
+
 # Data source (optional) first
 if [ $CREATE_SOURCE -eq 1 ]; then
     # Get the root collection for the account (assume it is already created as the first collection)
